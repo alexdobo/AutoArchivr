@@ -158,18 +158,21 @@ for year in range(int(startDate[0]),int(endDate[0])+1): #needs to plus 1 to be i
 if not ID:
     con = firebirdsql.connect(host='localhost',database=DB, user='sysdba', password='masterkey')
     cur = con.cursor()
-    cur.execute("SELECT ADDRESS FROM ARCHIVELOCATION WHERE ADDRESS = '?'",dest)
+    cur.execute("SELECT ADDRESS FROM ARCHIVELOCATION WHERE ADDRESS = ?",dest)
     r = cur.fetchone()
     if r:
         ID = r[0]
         print(r)
     else:
         #create ID
-        query = "INSERT INTO ARCHIVELOCATION (SHORTNAME, ADDRESSTYPE,ADDRESS,AVAILABLESIZE,PERCENTAGETOUSE) VALUES ('AutoArchivr',?,?,NULL,?)"
-        values = ('1',dest,'95.00')
+        query = "INSERT INTO ARCHIVELOCATION (SHORTNAME, ADDRESSTYPE,ADDRESS,AVAILABLESIZE,PERCENTAGETOUSE) VALUES ('AutoArchivr','1',?,NULL,'95.00')"
+        values = (dest)
         print(values)
         cur.execute(query,values)
         con.commit()
+        cur = con.cursor()
+        cur.execute("SELECT ADDRESS FROM ARCHIVELOCATION WHERE ADDRESS = ?",dest)
+        ID = cur.fetchone()[0]
 
 #change recording's archive location
 #update recordings set archivelocation = 3 where startdatetime >= '2014.01.01 00:00:00' and startdatetime <= '2015.05.31 23:59:59'
