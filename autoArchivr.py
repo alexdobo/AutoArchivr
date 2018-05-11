@@ -22,6 +22,8 @@ import shutil
 import datetime
 import calendar
 
+DB = "C:\Program Files (x86)\Oak Telecom\Comms Suite\data\COMMSUITE.FDB"
+
 def getLastDayOfMonth(date):
     lastDay = calendar.monthrange(date.year,date.month)[1]
     return datetime.datetime(date.year,date.month,lastDay,23,59,59)
@@ -29,8 +31,7 @@ def getLastDayOfMonth(date):
 def strToDateTime(date):
     year = int(date[0])
     month = int(date[1])
-    datetime = datetime.datetime(year,month,1,0,0)
-    return datetime
+    return datetime.datetime(year,month,1,0,0)
 
 
 def getImmediateSubDirectories(a_dir):
@@ -85,12 +86,14 @@ def getLocation(msg):
     confirm = 'n'
     archiveID = None
     while confirm not in ['y','Y','']:
-        path = input(msg)
+        path = input(msg + "(C:\c) ")
+        if (path == ""):
+            path = "C:\c"
         try:
             archiveID = int(path)
             #get path from DB
 
-            con = firebirdsql.connect(host='localhost',database=r'C:/Users/oaksi/code/autoArchivr/COMMSUITE.FDB', user='sysdba', password='masterkey')
+            con = firebirdsql.connect(host='localhost',database=DB, user='sysdba', password='masterkey')
             cur = con.cursor()
             cur.execute("SELECT ADDRESS FROM ARCHIVELOCATION WHERE ID = " + path)
             r = cur.fetchone()
@@ -117,14 +120,18 @@ dest,ID = getLocation("Enter destination directory or archive location ID: ")
 
 
 #copy files and folders to destination
-for year in range(int(startDate[0]),int(endDate[0]+1)): #needs to plus 1 to be inclusive
+for year in range(int(startDate[0]),int(endDate[0])+1): #needs to plus 1 to be inclusive
+    year = str(year)
     src = os.getcwd() + "/" + year
     print("Moving " + src) #year
     if not os.path.isdir(dest + "/" + year):
         #create directory        
         os.makedirs(dest + "/" + year)
 
-    for month in range(int(startDate[1]),int(endDate[1]+1)):
+    for month in range(int(startDate[1]),int(endDate[1])+1):
+        month = str(month)
+        if len(month) == 1:
+            month = "0" + month
         if not os.path.isdir(dest + "/" + year + "/" + month):
             #create directory
             os.makedirs(dest + "/" + year + "/" + month)
@@ -138,29 +145,31 @@ for year in range(int(startDate[0]),int(endDate[0]+1)): #needs to plus 1 to be i
             if not os.path.isdir(dest + "/" + year + "/" + month + "/" + day):
                 #create directory
                 os.makedirs(dest + "/" + year + "/" + month + "/" + day)
-            dest = dest + "/" + year + "/" + month + "/" + day
+            finalDest = dest + "/" + year + "/" + month + "/" + day
             recordings = os.listdir(src)
             for rec in recordings:
                 src = os.getcwd() + "/" + year + "/" + month + "/" + day + "/" + rec
                 if os.path.isfile(src):
                     shutil.remove(src)
-                shutil.move(src,dest)
+                shutil.move(src,finalDest)
 
 #update database
 #get archive ID
 if not ID:
-    con = firebirdsql.connect(host='localhost',database=r'C:/Users/oaksi/code/autoArchivr/COMMSUITE.FDB', user='sysdba', password='masterkey')
+    con = firebirdsql.connect(host='localhost',database=DB, user='sysdba', password='masterkey')
     cur = con.cursor()
     cur.execute("SELECT ADDRESS FROM ARCHIVELOCATION WHERE ADDRESS = '?'",dest)
     r = cur.fetchone()
     if r:
         ID = r[0]
+        print(r)
     else:
         #create ID
-        query = "INSERT INTO ARCHIVELOCATION (ADDRESSTYPE,ADDRESS,AVAILABLESIZE,PERCENTAGETOUSE) VALUES (?,?,NULL,?)"
+        query = "INSERT INTO ARCHIVELOCATION (SHORTNAME, ADDRESSTYPE,ADDRESS,AVAILABLESIZE,PERCENTAGETOUSE) VALUES ('AutoArchivr',?,?,NULL,?)"
         values = ('1',dest,'95.00')
+        print(values)
         cur.execute(query,values)
-        cur.commit()
+        con.commit()
 
 #change recording's archive location
 #update recordings set archivelocation = 3 where startdatetime >= '2014.01.01 00:00:00' and startdatetime <= '2015.05.31 23:59:59'
@@ -172,11 +181,12 @@ endDateTime = getLastDayOfMonth(strToDateTime(endDate))
 end = endDateTime.strftime("%Y.%m.%d %H:%M:%S")
 
 
-con = firebirdsql.connect(host='localhost',database=r'C:/Users/oaksi/code/autoArchivr/COMMSUITE.FDB', user='sysdba', password='masterkey')
+con = firebirdsql.connect(host='localhost',database=DB, user='sysdba', password='masterkey')
 cur = con.cursor()
 query = "UPDATE recordings SET archivelocation = ? WHERE startdatetime >= ? AND startdatetime <= ?"
 values = (ID,start,end)
+print(values)
 cur.execute(query,values)
-cur.commit()
+con.commit()
 
 
